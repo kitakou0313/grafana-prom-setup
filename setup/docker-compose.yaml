@@ -31,7 +31,7 @@ services:
       - "4318:4318"   # OTLP HTTP
     volumes:
       - ./tempo/tempo.yml:/etc/tempo.yml
-      - tempo-data:/tmp/tempo
+      - tempo-data:/var/tempo
     networks:
       - observability
     restart: unless-stopped
