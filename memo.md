@@ -25,6 +25,9 @@
 # 資料
 - https://github.com/grafana
 
+## デモのアプリケーション
+- https://github.com/open-telemetry/opentelemetry-demo
+
 ## Grafana Tempo関連
 - 設定ファイルのspecification
     - https://grafana.com/docs/tempo/latest/configuration/manifest/
