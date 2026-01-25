@@ -24,3 +24,8 @@
 
 # 資料
 - https://github.com/grafana
+
+## Grafana Tempo関連
+- 設定ファイルのspecification
+    - https://grafana.com/docs/tempo/latest/configuration/manifest/
+    - https://grafana.com/docs/tempo/latest/configuration/#local-storage-recommendations
