@@ -32,3 +32,12 @@
 - 設定ファイルのspecification
     - https://grafana.com/docs/tempo/latest/configuration/manifest/
     - https://grafana.com/docs/tempo/latest/configuration/#local-storage-recommendations
+
+## Grafana Pyroscope
+- https://grafana.com/docs/pyroscope/latest/
+- アプリケーションを計装する方法
+    - Manual Instrumentation
+    - Auto Instrumentation
+        - https://grafana.com/docs/pyroscope/latest/configure-client/#about-auto-instrumentation-with-grafana-alloy-or-agent-collectors
+        - Grafana Alloyを使う
+            - https://grafana.com/docs/alloy/latest/
