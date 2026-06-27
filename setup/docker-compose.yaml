@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  # OpenTelemetry Collector - Signal gateway for traces and metrics
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector/otel-collector.yaml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC (from apps)
+      - "4318:4318"   # OTLP HTTP (from apps)
+      - "8888:8888"   # Collector metrics (scraped by Prometheus)
+    volumes:
+      - ./otel-collector/otel-collector.yaml:/etc/otel-collector/otel-collector.yaml
+    networks:
+      - observability
+    depends_on:
+      - tempo
+      - prometheus
+    restart: unless-stopped
+
   # Prometheus - Metrics collection and storage
   prometheus:
     image: prom/prometheus:latest
@@ -11,11 +29,12 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--enable-feature=exemplar-storage'
+      - '--web.enable-remote-write-receiver'
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
+      - /Volumes/isuconvmssd/prometheus-data:/prometheus
     networks:
       - observability
     restart: unless-stopped
@@ -26,12 +45,10 @@ services:
     container_name: tempo
     command: [ "-config.file=/etc/tempo.yml" ]
     ports:
-      - "3200:3200"   # Tempo HTTP
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "3200:3200"   # Tempo HTTP (query)
     volumes:
       - ./tempo/tempo.yml:/etc/tempo.yml
-      - tempo-data:/var/tempo
+      - /Volumes/isuconvmssd/tempo-data:/var/tempo
     networks:
       - observability
     restart: unless-stopped
@@ -45,7 +62,7 @@ services:
     environment:
       - PYROSCOPE_LOG_LEVEL=info
     volumes:
-      - pyroscope-data:/var/lib/pyroscope
+      - /Volumes/isuconvmssd/pyroscope-data:/var/lib/pyroscope
     networks:
       - observability
     restart: unless-stopped
@@ -62,7 +79,7 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=false
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
-      - grafana-data:/var/lib/grafana
+      - /Volumes/isuconvmssd/grafana-data:/var/lib/grafana
     networks:
       - observability
     depends_on:
@@ -75,8 +92,3 @@ networks:
   observability:
     driver: bridge
 
-volumes:
-  prometheus-data:
-  tempo-data:
-  pyroscope-data:
-  grafana-data:

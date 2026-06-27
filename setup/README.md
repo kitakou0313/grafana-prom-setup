@@ -3,20 +3,46 @@
     - https://grafana.com/docs/tempo/latest/set-up-for-tracing/setup-tempo/deploy/locally/docker-compose/
 - Grafana Pyroscope tutorial
     - https://grafana.com/docs/pyroscope/latest/get-started/
+- OpenTelemetry Collector documentation
+    - https://opentelemetry.io/docs/collector/
 
 # Observability Stack with Docker Compose
 
 This setup includes a complete observability stack with:
+- **OpenTelemetry Collector**: Signal gateway — receives traces and metrics from applications and forwards them to the appropriate backends
 - **Grafana**: Visualization and dashboards
 - **Prometheus**: Metrics collection and storage
 - **Grafana Tempo**: Distributed tracing
 - **Grafana Pyroscope**: Continuous profiling
 
+## Architecture
+
+```
+Application
+  │
+  ├─ Traces  (OTLP gRPC :4317 / HTTP :4318)
+  ├─ Metrics (OTLP gRPC :4317 / HTTP :4318)
+  │
+  ▼
+OTel Collector
+  │
+  ├─ Traces  ──► Tempo        (internal :4317)
+  └─ Metrics ──► Prometheus   (remote write :9090)
+
+Application
+  └─ Profiles ──► Pyroscope   (:4040, direct)
+```
+
+> Profiles are sent directly to Pyroscope because the OpenTelemetry profiling signal
+> is not yet stable and standard OTel Collector support is limited.
+
 ## Directory Structure
 
 ```
 .
-├── docker-compose.yml
+├── docker-compose.yaml
+├── otel-collector/
+│   └── otel-collector.yaml
 ├── prometheus/
 │   └── prometheus.yml
 ├── tempo/
@@ -52,43 +78,58 @@ docker-compose down -v
 
 ## Service Details
 
+### OpenTelemetry Collector (Ports 4317, 4318, 8888)
+- OTLP gRPC receiver: 4317 (from apps)
+- OTLP HTTP receiver: 4318 (from apps)
+- Collector self-metrics: 8888 (scraped by Prometheus)
+- Forwards traces to Tempo via OTLP gRPC
+- Forwards metrics to Prometheus via remote write
+
 ### Grafana (Port 3000)
 - Pre-configured with all datasources
 - Anonymous access enabled for testing (disable in production)
 - Data sources automatically provisioned
 
 ### Prometheus (Port 9090)
-- Scrapes metrics from all services every 15 seconds
+- Scrapes metrics from Prometheus itself and OTel Collector every 15 seconds
+- Receives metrics forwarded from OTel Collector via remote write
 - Exemplar storage enabled for trace correlation
 - Persistent storage in volume
 
-### Tempo (Port 3200, 4317, 4318, 9411)
-- OTLP gRPC receiver: 4317
-- OTLP HTTP receiver: 4318
-- Zipkin receiver: 9411
+### Tempo (Port 3200)
+- Query HTTP API: 3200
+- OTLP ports are internal only (OTel Collector forwards to Tempo on the internal network)
 - Metrics generator enabled with Prometheus integration
 
 ### Pyroscope (Port 4040)
 - Continuous profiling storage
-- Ready to receive profiling data
+- Receives profiling data directly from applications
 
 ## Sending Data
 
-### Traces to Tempo (OpenTelemetry)
-```bash
+All signals except profiling go through the OTel Collector.
+
+### Traces and Metrics (via OTel Collector)
+
+Configure your application's OTel SDK to export to the OTel Collector:
+
+```yaml
 # OTLP gRPC endpoint
 endpoint: http://localhost:4317
 
 # OTLP HTTP endpoint
-endpoint: http://localhost:4318/v1/traces
+endpoint: http://localhost:4318
 ```
 
-### Metrics to Prometheus
-Configure your application to expose metrics and add a scrape config to `prometheus/prometheus.yml`
-
-### Profiles to Pyroscope
+Example (environment variables):
 ```bash
-# Example with Go application
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+```
+
+### Profiles to Pyroscope (direct)
+```go
+// Example with Go application
 import "github.com/grafana/pyroscope-go"
 
 pyroscope.Start(pyroscope.Config{
@@ -99,7 +140,8 @@ pyroscope.Start(pyroscope.Config{
 
 ## Customization
 
-- Modify `prometheus/prometheus.yml` to add scrape targets
+- Modify `otel-collector/otel-collector.yaml` to add processors (sampling, filtering) or additional exporters
+- Modify `prometheus/prometheus.yml` to add extra scrape targets
 - Adjust `tempo/tempo.yml` for trace retention and sampling
 - Update Grafana provisioning files to add dashboards or modify datasources
 
