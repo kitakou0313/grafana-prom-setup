@@ -31,3 +31,8 @@ metrics_generator:
 compactor:
   compaction:
     block_retention: 48h
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics]

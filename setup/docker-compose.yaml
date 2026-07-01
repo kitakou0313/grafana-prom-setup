@@ -17,7 +17,7 @@ services:
     depends_on:
       - tempo
       - prometheus
-    restart: unless-stopped
+    # restart: unless-stopped
 
   # Prometheus - Metrics collection and storage
   prometheus:
