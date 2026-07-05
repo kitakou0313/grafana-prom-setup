@@ -30,6 +30,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--enable-feature=exemplar-storage'
       - '--web.enable-remote-write-receiver'
+      - '--log.level=debug'
     ports:
       - "9090:9090"
     volumes:
@@ -70,7 +71,7 @@ services:
     ports:
       - "4040:4040"
     environment:
-      - PYROSCOPE_LOG_LEVEL=info
+      - PYROSCOPE_LOG_LEVEL=debug
     volumes:
       - /Volumes/isuconvmssd/pyroscope-data:/var/lib/pyroscope
     networks:
@@ -93,6 +94,7 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_LOG_LEVEL=debug
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - /Volumes/isuconvmssd/grafana-data:/var/lib/grafana
