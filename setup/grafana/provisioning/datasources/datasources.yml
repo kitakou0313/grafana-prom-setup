@@ -24,6 +24,8 @@ datasources:
     editable: true
     jsonData:
       httpMethod: GET
+      streamingEnabled:
+        search: false
       tracesToLogs:
         datasourceUid: loki
       tracesToMetrics:
