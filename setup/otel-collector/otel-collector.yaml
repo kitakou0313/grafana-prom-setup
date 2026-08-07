@@ -18,6 +18,8 @@ exporters:
     endpoint: http://prometheus:9090/api/v1/write
     tls:
       insecure_skip_verify: true
+    resource_to_telemetry_conversion:
+      enabled: true
 
 service:
   telemetry:
