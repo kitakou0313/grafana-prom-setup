@@ -1,0 +1,64 @@
+services:
+  tempo1:
+    image: grafana/tempo:latest
+    container_name: tempo-split-trace-tempo1
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "3200:3200"   # Tempo query API
+    volumes:
+      - ./tempo1.yml:/etc/tempo.yml
+      - tempo1-data:/var/tempo
+    networks:
+      - tempo-split-trace
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3200/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  tempo2:
+    image: grafana/tempo:latest
+    container_name: tempo-split-trace-tempo2
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "4327:4317"   # OTLP gRPC
+      - "4328:4318"   # OTLP HTTP
+      - "3201:3200"   # Tempo query API
+    volumes:
+      - ./tempo2.yml:/etc/tempo.yml
+      - tempo2-data:/var/tempo
+    networks:
+      - tempo-split-trace
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3200/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tempo-split-trace-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - tempo-split-trace
+    depends_on:
+      tempo1:
+        condition: service_healthy
+      tempo2:
+        condition: service_healthy
+
+networks:
+  tempo-split-trace:
+    driver: bridge
+
+volumes:
+  tempo1-data:
+  tempo2-data:

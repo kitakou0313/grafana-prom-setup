@@ -1,0 +1,24 @@
+apiVersion: 1
+
+datasources:
+  - name: Tempo1
+    type: tempo
+    access: proxy
+    url: http://tempo1:3200
+    uid: tempo1
+    editable: true
+    jsonData:
+      httpMethod: GET
+      streamingEnabled:
+        search: false
+
+  - name: Tempo2
+    type: tempo
+    access: proxy
+    url: http://tempo2:3200
+    uid: tempo2
+    editable: true
+    jsonData:
+      httpMethod: GET
+      streamingEnabled:
+        search: false
