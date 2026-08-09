@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -18,9 +19,17 @@ import (
 
 // service-b receives the propagated trace context from service-a and exports
 // its own span to a different Tempo backend (tempo2) than service-a uses.
-const tempo2Endpoint = "localhost:4327"
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
 func main() {
+	tempo2Endpoint := getenv("TEMPO2_ENDPOINT", "localhost:4327")
+	listenAddr := getenv("LISTEN_ADDR", ":8081")
+
 	ctx := context.Background()
 
 	exporter, err := otlptracegrpc.New(ctx,
@@ -59,8 +68,8 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/handle", otelhttp.NewHandler(handler, "service-b.handle"))
 
-	log.Println("service-b listening on :8081, exporting spans to tempo2 via", tempo2Endpoint)
-	if err := http.ListenAndServe(":8081", mux); err != nil {
+	log.Println("service-b listening on", listenAddr, "exporting spans to tempo2 via", tempo2Endpoint)
+	if err := http.ListenAndServe(listenAddr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

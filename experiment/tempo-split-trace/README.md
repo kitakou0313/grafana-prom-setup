@@ -7,10 +7,18 @@
 
 ## 構成
 
+```
+client --HTTP--> service-a --HTTP(trace伝播)--> service-b
+(spanなし)         (span→tempo1)                  (span→tempo2)
+```
+
 - `tempo1` / `tempo2`: 独立したGrafana Tempo（相互連携なし）
 - `grafana`: `Tempo1` (→tempo1) / `Tempo2` (→tempo2) の2データソースを持つGrafana
-- `service-a`: HTTPクライアント役。ルートspanを開始し `service-b` を呼び出す。自身のspanは **tempo1** へ送信
+- `client`: OpenTelemetryの計装を一切持たない素のHTTPクライアント。`service-a` にリクエストを送るだけでspanは生成しない
+- `service-a`: HTTPサーバ役。`client` からのリクエストを受けてspanを開始（`traceparent` が来ないためこれがroot span）し、`service-b` を呼び出す。自身のspanは **tempo1** へ送信
 - `service-b`: HTTPサーバ役。`service-a` から伝播されたtrace contextで子spanを生成。自身のspanは **tempo2** へ送信
+
+いずれも `docker-compose.yaml` で管理される。`client` は「実行するたびに新しいトレースを1本送る」ジョブ的な性質のため `trigger` プロファイルに属しており、`docker compose up -d` では自動起動しない。
 
 ## 起動
 
@@ -19,33 +27,42 @@ cd experiment/tempo-split-trace
 docker compose up -d
 ```
 
+`tempo1` / `tempo2` / `grafana` / `service-a` / `service-b` が起動する（`client` は起動しない）。
+
 起動確認:
 
 ```sh
 curl http://localhost:3200/ready   # tempo1
 curl http://localhost:3201/ready   # tempo2
 curl http://localhost:3001/api/health   # grafana
+docker compose ps                  # client は表示されないのが正しい
 ```
 
 ## テストトレースの生成方法
 
-1. `service-b` を先に起動（別ターミナル、または `&` でバックグラウンド実行のままにする）
+`client` を実行するたびに新しい1トレースが送信される。標準出力に`service-a`からのレスポンス（`TRACE_ID=...` 含む）がそのまま表示される。
 
-   ```sh
-   go run ./service-b
-   ```
+```sh
+docker compose run --rm client
+```
 
-2. `service-a` を実行してリクエストを送信。実行のたびに新しいtrace IDが生成され、標準出力に `TRACE_ID=...` として表示される
+出力例:
+```
+service-a handled request, called service-b: handled by service-b
+TRACE_ID=78765c1a02a27669c94568eec45f2ba2
+```
 
-   ```sh
-   go run ./service-a
-   ```
+何度でも実行してよく、毎回異なるtrace IDが生成される。
 
-   出力例:
-   ```
-   response from service-b: handled by service-b
-   TRACE_ID=bbad7217e3e90debfa6b820a874edd6c
-   ```
+### ホストから直接実行する場合
+
+`docker compose` を使わず手元で直接動かすこともできる（環境変数を省略するとホスト向けのデフォルト値が使われる）。
+
+```sh
+go run ./service-b &
+go run ./service-a &
+go run ./client
+```
 
 ## ブラウザでの確認方法
 

@@ -55,6 +55,53 @@ services:
       tempo2:
         condition: service_healthy
 
+  service-b:
+    build:
+      context: .
+      dockerfile: service-b/Dockerfile
+    container_name: tempo-split-trace-service-b
+    environment:
+      - TEMPO2_ENDPOINT=tempo2:4317
+    networks:
+      - tempo-split-trace
+    depends_on:
+      tempo2:
+        condition: service_healthy
+
+  service-a:
+    build:
+      context: .
+      dockerfile: service-a/Dockerfile
+    container_name: tempo-split-trace-service-a
+    environment:
+      - TEMPO1_ENDPOINT=tempo1:4317
+      - SERVICE_B_URL=http://service-b:8081/handle
+    networks:
+      - tempo-split-trace
+    depends_on:
+      tempo1:
+        condition: service_healthy
+      service-b:
+        condition: service_started
+
+  # Uninstrumented request trigger. Not part of `up -d` (see profiles); run
+  # `docker compose run --rm client` whenever a new trace should be sent.
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: tempo-split-trace-client
+    environment:
+      - SERVICE_A_URL=http://service-a:8080/handle
+    networks:
+      - tempo-split-trace
+    depends_on:
+      service-a:
+        condition: service_started
+    restart: "no"
+    profiles:
+      - trigger
+
 networks:
   tempo-split-trace:
     driver: bridge
