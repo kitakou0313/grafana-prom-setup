@@ -75,7 +75,7 @@ services:
     container_name: tempo-split-trace-service-a
     environment:
       - TEMPO1_ENDPOINT=tempo1:4317
-      - SERVICE_B_URL=http://service-b:8081/handle
+      - SERVICE_B_BASE_URL=http://service-b:8081
     networks:
       - tempo-split-trace
     depends_on:

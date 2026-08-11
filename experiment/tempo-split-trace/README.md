@@ -5,18 +5,23 @@
 
 検証結果のまとめは [`../tempo-split-trace-report.md`](../tempo-split-trace-report.md) を参照。
 
+# ToDO
+- エラー発生時の挙動の確認
+- サンプリング時の挙動確認
+  - 片方のSpanのみ取得されてもう片方はされない ということはない？
+
 ## 構成
 
 ```
-client --HTTP--> service-a --HTTP(trace伝播)--> service-b
-(spanなし)         (span→tempo1)                  (span→tempo2)
+client --HTTP--> service-a --HTTP(trace伝播)x3--> service-b
+(spanなし)         (span→tempo1)                    (span→tempo2)
 ```
 
 - `tempo1` / `tempo2`: 独立したGrafana Tempo（相互連携なし）
 - `grafana`: `Tempo1` (→tempo1) / `Tempo2` (→tempo2) の2データソースを持つGrafana
 - `client`: OpenTelemetryの計装を一切持たない素のHTTPクライアント。`service-a` にリクエストを送るだけでspanは生成しない
-- `service-a`: HTTPサーバ役。`client` からのリクエストを受けてspanを開始（`traceparent` が来ないためこれがroot span）し、`service-b` を呼び出す。自身のspanは **tempo1** へ送信
-- `service-b`: HTTPサーバ役。`service-a` から伝播されたtrace contextで子spanを生成。自身のspanは **tempo2** へ送信
+- `service-a`: HTTPサーバ役。`client` からのリクエストを受けてspanを開始（`traceparent` が来ないためこれがroot span）し、`service-b` の3つのエンドポイント（`/handle/200`, `/handle/400`, `/handle/500`）へ順番に1回ずつリクエストを送る。自身のspanは **tempo1** へ送信
+- `service-b`: HTTPサーバ役。`service-a` から伝播されたtrace contextで子spanを生成。エンドポイントごとに固定のHTTPステータス（200 / 400 / 500）を返す。自身のspanは **tempo2** へ送信
 
 いずれも `docker-compose.yaml` で管理される。`client` は「実行するたびに新しいトレースを1本送る」ジョブ的な性質のため `trigger` プロファイルに属しており、`docker compose up -d` では自動起動しない。
 
@@ -48,7 +53,10 @@ docker compose run --rm client
 
 出力例:
 ```
-service-a handled request, called service-b: handled by service-b
+service-a handled request, called service-b 3 times:
+/handle/200 -> status=200 body=handled by service-b (200)
+/handle/400 -> status=400 body=handled by service-b (400)
+/handle/500 -> status=500 body=handled by service-b (500)
 TRACE_ID=78765c1a02a27669c94568eec45f2ba2
 ```
 

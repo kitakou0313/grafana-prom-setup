@@ -18,7 +18,10 @@ import (
 )
 
 // service-b receives the propagated trace context from service-a and exports
-// its own span to a different Tempo backend (tempo2) than service-a uses.
+// its own spans to a different Tempo backend (tempo2) than service-a uses.
+// It exposes three endpoints that each return a fixed HTTP status code
+// (200 / 400 / 500) so a single trace can contain a mix of success and
+// error spans.
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -61,12 +64,19 @@ func main() {
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "handled by service-b")
-	})
-
 	mux := http.NewServeMux()
-	mux.Handle("/handle", otelhttp.NewHandler(handler, "service-b.handle"))
+	mux.Handle("/handle/200", otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "handled by service-b (200)")
+	}), "service-b.handle-200"))
+	mux.Handle("/handle/400", otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "handled by service-b (400)")
+	}), "service-b.handle-400"))
+	mux.Handle("/handle/500", otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "handled by service-b (500)")
+	}), "service-b.handle-500"))
 
 	log.Println("service-b listening on", listenAddr, "exporting spans to tempo2 via", tempo2Endpoint)
 	if err := http.ListenAndServe(listenAddr, mux); err != nil {
